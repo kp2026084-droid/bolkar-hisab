@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14532d">
+<meta name="description" content="बोलकर कमाई और खर्च का हिसाब रखें">
+<link rel="manifest" href="manifest.json">
+<title>Bolkar Hisab</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Noto Sans Devanagari",sans-serif;color:#17221b;background:#f3f7f4}
+*{box-sizing:border-box}body{margin:0}header{background:#14532d;color:white;padding:22px 16px 25px;border-radius:0 0 24px 24px}
+h1{margin:0;font-size:25px}header p{margin:6px 0 0;color:#d8f3df;font-size:14px}
+main{max-width:720px;margin:auto;padding:14px;display:grid;gap:14px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px}
+.card{background:#fff;color:#17221b;border-radius:14px;padding:12px 8px;box-shadow:0 2px 8px #0000000a}
+.card small{display:block;color:#627067;font-size:12px}.card strong{display:block;margin-top:5px;font-size:17px;overflow-wrap:anywhere}
+.panel{background:white;border-radius:18px;padding:16px;box-shadow:0 2px 12px #163d2510}
+h2{font-size:18px;margin:0 0 12px}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1;min-width:110px}
+input,select,button{font:inherit;border-radius:11px;padding:12px;border:1px solid #ccd8ce;width:100%;background:white;color:#17221b}
+button{border:0;font-weight:700;cursor:pointer;background:#166534;color:white}
+button.secondary{background:#e5efe7;color:#14532d}button.danger{background:#fee2e2;color:#991b1b}
+button:disabled{opacity:.55}
+.mic{font-size:17px;padding:15px}.hint{font-size:13px;color:#5b6b60;line-height:1.5;margin:10px 0 0}
+.status{font-size:13px;margin-top:8px;min-height:18px;color:#14532d}
+.entry{padding:12px 0;border-bottom:1px solid #edf1ed;display:flex;gap:10px;align-items:center;justify-content:space-between}
+.entry:last-child{border-bottom:0}.entry .meta{font-size:12px;color:#68766c;margin-top:3px}
+.amount{font-weight:800;white-space:nowrap}.income{color:#15803d}.expense{color:#b91c1c}
+.empty{color:#65736a;font-size:14px;padding:8px 0}.footer{text-align:center;font-size:12px;color:#647067;padding:0 10px 22px}
+@media(max-width:370px){.card strong{font-size:14px}.card{padding:10px 6px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🧾 Bolkar Hisab</h1>
+  <p>अपनी आवाज़ से कमाई और खर्च का हिसाब रखें</p>
+  <div class="cards">
+    <div class="card"><small>कुल कमाई</small><strong id="incomeTotal">₹0</strong></div>
+    <div class="card"><small>कुल खर्च</small><strong id="expenseTotal">₹0</strong></div>
+    <div class="card"><small>बैलेंस</small><strong id="balanceTotal">₹0</strong></div>
+  </div>
+</header>
+<main>
+  <section class="panel">
+    <h2>🎙️ बोलकर एंट्री करें</h2>
+    <button class="mic" id="micBtn">🎤 बोलकर हिसाब जोड़ें</button>
+    <p class="hint">उदाहरण: “500 रुपये खर्च किए”, “आज 2000 रुपये कमाए” या “कमाई 1500 रुपये”। बोलने के बाद एंट्री जाँचकर सेव करें।</p>
+    <div class="status" id="voiceStatus" aria-live="polite"></div>
+    <input id="voiceText" placeholder="आपकी बोली हुई बात यहाँ दिखेगी" aria-label="बोली हुई बात">
+    <div class="row" style="margin-top:8px"><button class="secondary" id="parseBtn">बात समझें</button><button id="voiceSaveBtn">एंट्री सेव करें</button></div>
+  </section>
+  <section class="panel">
+    <h2>✍️ खुद एंट्री जोड़ें</h2>
+    <div class="row">
+      <select id="type"><option value="expense">खर्च</option><option value="income">कमाई</option></select>
+      <input id="amount" type="number" min="1" step="0.01" inputmode="decimal" placeholder="रकम ₹">
+    </div>
+    <input id="note" placeholder="विवरण (जैसे राशन, वेतन)" style="margin-top:8px">
+    <button id="addBtn" style="margin-top:8px">+ हिसाब जोड़ें</button>
+    <div class="status" id="formStatus" aria-live="polite"></div>
+  </section>
+  <section class="panel">
+    <div class="row" style="align-items:center">
+      <h2 style="margin:0;flex:2">📚 हिस्ट्री</h2>
+      <button class="secondary" id="exportBtn" style="flex:1">CSV डाउनलोड</button>
+    </div>
+    <div id="history"></div>
+    <button class="danger" id="clearBtn" style="margin-top:12px">सारा हिसाब मिटाएँ</button>
+    <p class="hint">आपका हिसाब इसी ब्राउज़र में सेव रहता है। ब्राउज़र का डेटा मिटाने या मोबाइल बदलने पर रिकॉर्ड खो सकता है। समय-समय पर CSV डाउनलोड करके सुरक्षित रखें।</p>
+  </section>
+</main>
+<div class="footer">Bolkar Hisab • मुफ्त व्यक्तिगत हिसाब-किताब</div>
+<script>
+const $ = id => document.getElementById(id);
+const KEY = 'bolkarHisabEntriesV1';
+let entries = [];
+try { entries = JSON.parse(localStorage.getItem(KEY) || '[]'); if(!Array.isArray(entries)) entries=[]; } catch(e){ entries=[]; }
+let parsedDraft = null;
+const money = n => new Intl.NumberFormat('hi-IN',{style:'currency',currency:'INR',maximumFractionDigits:2}).format(n || 0);
+const save = () => localStorage.setItem(KEY, JSON.stringify(entries));
+function render(){
+  const inc=entries.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  const exp=entries.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
+  $('incomeTotal').textContent=money(inc); $('expenseTotal').textContent=money(exp); $('balanceTotal').textContent=money(inc-exp);
+  const box=$('history');
+  if(!entries.length){box.innerHTML='<div class="empty">अभी कोई एंट्री नहीं है। ऊपर से पहली एंट्री जोड़ें।</div>';return;}
+  box.innerHTML='';
+  [...entries].reverse().forEach(e=>{
+    const item=document.createElement('div'); item.className='entry';
+    const left=document.createElement('div');
+    const title=document.createElement('div'); title.textContent=e.note || (e.type==='income'?'कमाई':'खर्च');
+    const meta=document.createElement('div'); meta.className='meta'; meta.textContent=new Date(e.date).toLocaleString('hi-IN');
+    left.append(title,meta);
+    const right=document.createElement('div'); right.style.display='flex';right.style.alignItems='center';right.style.gap='8px';
+    const amt=document.createElement('span');amt.className='amount '+(e.type==='income'?'income':'expense');amt.textContent=(e.type==='income'?'+':'−')+money(e.amount);
+    const del=document.createElement('button');del.className='secondary';del.textContent='×';del.style.width='38px';del.style.padding='8px';del.setAttribute('aria-label','एंट्री हटाएँ');
+    del.onclick=()=>{if(confirm('यह एंट्री हटाएँ?')){entries=entries.filter(x=>x.id!==e.id);save();render();}};
+    right.append(amt,del);item.append(left,right);box.append(item);
+  });
+}
+function addEntry(type, amount, note){
+  amount=Number(amount);
+  if(!Number.isFinite(amount)||amount<=0){return false;}
+  entries.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),type,amount,note:(note||'').trim(),date:new Date().toISOString()});
+  save();render();return true;
+}
+function parseHindi(text){
+  const t=(text||'').toLowerCase().replace(/,/g,'').trim();
+  const digits=t.match(/\d+(?:\.\d+)?/);
+  const words=[
+    ['एक',1],['दो',2],['तीन',3],['चार',4],['पांच',5],['पाँच',5],['छह',6],['सात',7],['आठ',8],['नौ',9],['दस',10],
+    ['बीस',20],['तीस',30],['चालीस',40],['पचास',50],['सौ',100],['हजार',1000],['हज़ार',1000]
+  ];
+  let amount=digits?Number(digits[0]):null;
+  if(amount===null){
+    // Basic Hindi number-word support; numeric digits are more reliable.
+    const matches=words.filter(([w])=>t.includes(w));
+    if(matches.length===1) amount=matches[0][1];
+    else if(t.includes('हजार')||t.includes('हज़ार')) {
+      const m=t.match(/(एक|दो|तीन|चार|पांच|पाँच|छह|सात|आठ|नौ|दस)\s*(हजार|हज़ार)/);
+      const nums={'एक':1,'दो':2,'तीन':3,'चार':4,'पांच':5,'पाँच':5,'छह':6,'सात':7,'आठ':8,'नौ':9,'दस':10};
+      if(m) amount=nums[m[1]]*1000;
+    }
+  }
+  if(!amount || amount<=0) return {error:'रकम समझ नहीं आई। कृपया 500 जैसी संख्या बोलें या खुद लिखें।'};
+  const incomeWords=['कमाए','कमाया','कमाई','मिले','मिला','आमदनी','वेतन','सैलरी','जमा'];
+  const expenseWords=['खर्च','खरीदा','दिया','भुगतान','बिल','निकाले'];
+  let type='expense';
+  if(incomeWords.some(w=>t.includes(w))) type='income';
+  if(expenseWords.some(w=>t.includes(w)) && !incomeWords.some(w=>t.includes(w))) type='expense';
+  let note=t.replace(/\d+(?:\.\d+)?/g,'').replace(/रुपये|रुपया|रु|₹|आज|मैंने|का|की|के|कर दिए|किए|किया|हैं|है/g,' ').trim();
+  if(!note || note.length<2) note=type==='income'?'कमाई':'खर्च';
+  return {type,amount,note};
+}
+function prepareVoice(){
+  const result=parseHindi($('voiceText').value);
+  if(result.error){parsedDraft=null;$('voiceStatus').textContent=result.error;return;}
+  parsedDraft=result;
+  $('type').value=result.type;$('amount').value=result.amount;$('note').value=result.note;
+  $('voiceStatus').textContent=`समझा: ${result.type==='income'?'कमाई':'खर्च'} ${money(result.amount)} — सेव करने से पहले जाँच लें।`;
+}
+$('parseBtn').onclick=prepareVoice;
+$('voiceSaveBtn').onclick=()=>{
+  if(!parsedDraft) prepareVoice();
+  if(!parsedDraft){$('voiceStatus').textContent='पहले बात समझें दबाएँ और रकम जाँचें।';return;}
+  if(addEntry(parsedDraft.type,parsedDraft.amount,parsedDraft.note)){
+    $('voiceStatus').textContent='एंट्री सेव हो गई।';$('voiceText').value='';parsedDraft=null;
+  }
+};
+$('addBtn').onclick=()=>{
+  if(addEntry($('type').value,$('amount').value,$('note').value)){
+    $('formStatus').textContent='एंट्री सेव हो गई।';$('amount').value='';$('note').value='';
+  } else $('formStatus').textContent='कृपया सही रकम लिखें।';
+};
+$('micBtn').onclick=()=>{
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){$('voiceStatus').textContent='इस ब्राउज़र में आवाज़ पहचान उपलब्ध नहीं है। Android पर Chrome और इंटरनेट के साथ खोलें, या खुद एंट्री जोड़ें।';return;}
+  const rec=new SR();rec.lang='hi-IN';rec.interimResults=false;rec.maxAlternatives=1;
+  $('voiceStatus').textContent='सुन रहा हूँ… अब रकम और कमाई/खर्च बोलें।';
+  rec.onresult=e=>{$('voiceText').value=e.results[0][0].transcript;$('voiceStatus').textContent='आपकी बात मिल गई। अब “बात समझें” दबाएँ।';parsedDraft=null;};
+  rec.onerror=e=>{$('voiceStatus').textContent='आवाज़ नहीं मिली ('+e.error+')। माइक्रोफोन अनुमति जाँचें या खुद एंट्री जोड़ें।';};
+  rec.onend=()=>{};try{rec.start();}catch(e){$('voiceStatus').textContent='माइक्रोफोन शुरू नहीं हुआ। दोबारा कोशिश करें।';}
+};
+$('clearBtn').onclick=()=>{if(confirm('क्या आप सच में पूरा हिसाब मिटाना चाहते हैं? यह वापस नहीं आएगा।')){entries=[];save();render();}};
+$('exportBtn').onclick=()=>{
+  const rows=[['Type','Amount INR','Description','Date'],...entries.map(e=>[e.type,e.amount,e.note,e.date])];
+  const csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='Bolkar-Hisab.csv';a.click();URL.revokeObjectURL(url);
+};
+if('serviceWorker' in navigator && location.protocol.startsWith('http')) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+render();
+</script>
+</body>
+</html>

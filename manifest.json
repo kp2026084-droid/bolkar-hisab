@@ -1,0 +1,11 @@
+{
+  "name": "Bolkar Hisab",
+  "short_name": "Hisab",
+  "description": "बोलकर कमाई और खर्च का हिसाब",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f7f4",
+  "theme_color": "#14532d",
+  "icons": []
+}
